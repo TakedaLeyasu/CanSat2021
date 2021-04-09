@@ -1,3 +1,12 @@
+#include <Servo.h>
+
+Servo myservo;  // create servo object to control a servo
+// twelve servo objects can be created on most boards
+
+int pos = 0;
+
+
+
 //*************DEBUG****************
 
 #define DEBUG   //If you comment this line, the DPRINT & DPRINTLN lines are defined as blank.
@@ -21,13 +30,21 @@
 Adafruit_BMP085 bmp;
 
 
+//GPS
+#include <SoftwareSerial.h>
+// serial connection to the GPS device
+const int _PIN_GPS_RX = 6;
+const int _PIN_GPS_TX = 8;
+SoftwareSerial gpsSerial(_PIN_GPS_TX, _PIN_GPS_RX);
+
+
 //****PinBelegung
 
 const int _PIN_BMP_SDA = 2;
 const int _PIN_BMP_SCL = 3;
 const int _PIN_TMP36 = 4;
-const int _PIN_GPS_RX = 6;
-const int _PIN_GPS_TX = 8;
+//const int _PIN_GPS_RX = 6;
+//const int _PIN_GPS_TX = 8;
 const int _PIN_CAM_EA = 7;
 const int _PIN_Piper = 9;
 const int _PIN_SD_CS = 10;
@@ -90,16 +107,33 @@ void setup() {
 
   setup_SD();
   setup_BMP180();
+  gpsSerial.begin(9600);
+
+
+
+  myservo.attach(9);
 
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
 
+  for (pos = 0; pos <= 180; pos += 50) { // goes from 0 degrees to 180 degrees
+    // in steps of 1 degree
+    myservo.write(pos);              // tell servo to go to position in variable 'pos'
+                           // waits 15ms for the servo to reach the position
+  }
+  for (pos = 180; pos >= 0; pos -= 50) { // goes from 180 degrees to 0 degrees
+    myservo.write(pos);              // tell servo to go to position in variable 'pos'
+                           // waits 15ms for the servo to reach the position
+  }
+
+
+
 
   read_tmp36();
   read_BMP180();
-
+  read_GPS();
 
 
 
@@ -109,7 +143,7 @@ void loop() {
 
   data_to_dataString();
   dataString_to_SD();
-  delay(1000);
+  //delay(1000);
 }
 
 
@@ -145,6 +179,8 @@ void setup_BMP180() {
   }
 }
 
+
+
 //LOOP Funktionen
 
 
@@ -158,6 +194,16 @@ void read_BMP180() {
   bmp_temp = bmp.readTemperature();
 }
 
+void read_GPS() {
+  // Output raw GPS data to the serial monitor
+  if(gpsSerial.available()>0){
+    Serial.println("GPS:");
+  while (gpsSerial.available() > 0) {
+    Serial.write(gpsSerial.read());
+  }
+  Serial.println();
+  }
+}
 
 
 
