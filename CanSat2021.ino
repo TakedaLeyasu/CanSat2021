@@ -1,6 +1,6 @@
 //*************DEBUG****************
 
-#define DEBUG                                     //If you comment this line, the DPRINT & DPRINTLN lines are defined as blank.
+//#define DEBUG                                     //If you comment this line, the DPRINT & DPRINTLN lines are defined as blank.
 #ifdef DEBUG                                      //Macros are usually in all capital letters.
 #define DPRINT(...) Serial.print(__VA_ARGS__)     //DPRINT is a macro, debug print
 #define DPRINTLN(...) Serial.println(__VA_ARGS__) //DPRINTLN is a macro, debug print with new line
@@ -52,6 +52,14 @@ SoftwareSerial gpsSerial(_PIN_GPS_TX, _PIN_GPS_RX);
 Servo piper; // create servo object to control a servo
 // twelve servo objects can be created on most boards
 int pos = 0;
+#endif
+
+//MPU6050
+#ifdef Arduino_2
+#include <Adafruit_MPU6050.h>
+//#include <Adafruit_Sensor.h>
+//#include <Wire.h>
+Adafruit_MPU6050 mpu;
 #endif
 
 //****PinBelegung
@@ -140,7 +148,7 @@ void setup()
 
 #ifdef Arduino_2
   setup_BMP390();
-  //setup_MPU();
+  setup_MPU();
 #endif
 }
 
@@ -158,7 +166,7 @@ void loop()
 
 #ifdef Arduino_2
   read_BMP390();
-  //read_MPU();
+  read_MPU();
 #endif
 
   data_to_dataString();
@@ -214,7 +222,28 @@ void setup_BMP390()
   bmp.setIIRFilterCoeff(BMP3_IIR_FILTER_COEFF_3);
   bmp.setOutputDataRate(BMP3_ODR_50_HZ);
   read_BMP390();
-  ground_pressure = bmp_pressure/100;
+  ground_pressure = bmp_pressure / 100;
+}
+#endif
+
+#ifdef Arduino_2
+void setup_MPU()
+{
+  // Try to initialize!
+  if (!mpu.begin())
+  {
+    DPRINTLN("Failed to find MPU6050 chip");
+    while (1)//*********************************************************************Achtung Fehlermeldung
+    {
+      delay(10);
+    }
+  }
+
+  mpu.setAccelerometerRange(MPU6050_RANGE_16_G);
+  mpu.setGyroRange(MPU6050_RANGE_250_DEG);
+  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+  Serial.println("");
+  delay(100);
 }
 #endif
 
@@ -292,6 +321,23 @@ void mute_piper()
     piper.write(pos); // tell servo to go to position in variable 'pos'
     // waits 15ms for the servo to reach the position
   }
+}
+#endif
+
+#ifdef Arduino_2
+void read_MPU()
+{
+  /* Get new sensor events with the readings */
+  sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
+
+  /* Print out the values */
+  mpu_acX = a.acceleration.x;
+  mpu_acY = a.acceleration.y;
+  mpu_acZ = a.acceleration.z;
+  mpu_gyX = g.gyro.x;
+  mpu_gyY = g.gyro.y;
+  mpu_gyZ = g.gyro.z;
 }
 #endif
 
