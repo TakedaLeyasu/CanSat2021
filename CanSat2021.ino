@@ -1,11 +1,11 @@
 //*************DEBUG****************
 
-//#define DEBUG                                     //If you comment this line, the DPRINT & DPRINTLN lines are defined as blank.
+#define DEBUG                                     //If you comment this line, the DPRINT & DPRINTLN lines are defined as blank.
 #ifdef DEBUG                                      //Macros are usually in all capital letters.
 #define DPRINT(...) Serial.print(__VA_ARGS__)     //DPRINT is a macro, debug print
 #define DPRINTLN(...) Serial.println(__VA_ARGS__) //DPRINTLN is a macro, debug print with new line
-#else
 #warning
+#else
 #define DPRINT(...)   //now defines a blank line
 #define DPRINTLN(...) //now defines a blank line
 #endif
@@ -56,10 +56,8 @@ int pos = 0;
 
 //MPU6050
 #ifdef Arduino_2
-#include <Adafruit_MPU6050.h>
-//#include <Adafruit_Sensor.h>
 //#include <Wire.h>
-Adafruit_MPU6050 mpu;
+const int MPU = 0x68; // MPU6050 I2C address
 #endif
 
 //****PinBelegung
@@ -229,21 +227,25 @@ void setup_BMP390()
 #ifdef Arduino_2
 void setup_MPU()
 {
-  // Try to initialize!
-  if (!mpu.begin())
-  {
-    DPRINTLN("Failed to find MPU6050 chip");
-    while (1)//*********************************************************************Achtung Fehlermeldung
-    {
-      delay(10);
-    }
-  }
+  Wire.begin();                      // Initialize comunication
+  Wire.beginTransmission(MPU);       // Start communication with MPU6050 // MPU=0x68
+  Wire.write(0x6B);                  // Talk to the register 6B
+  Wire.write(0x00);                  // Make reset - place a 0 into the 6B register
+  Wire.endTransmission(true);        //end the transmission
 
-  mpu.setAccelerometerRange(MPU6050_RANGE_16_G);
-  mpu.setGyroRange(MPU6050_RANGE_250_DEG);
-  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
-  Serial.println("");
+  // Configure Accelerometer Sensitivity - Full Scale Range (default +/- 2g)
+  Wire.beginTransmission(MPU);
+  Wire.write(0x1C);                  //Talk to the ACCEL_CONFIG register (1C hex)
+  Wire.write(0x18);                  //Set the register bits as 00011000 (+/- 16g full scale range)
+  Wire.endTransmission(true);
+  // Configure Gyro Sensitivity - Full Scale Range (default +/- 250deg/s)
+  Wire.beginTransmission(MPU);
+  Wire.write(0x1B);                   // Talk to the GYRO_CONFIG register (1B hex)
+  Wire.write(0x18);                   // Set the register bits as 00011000 (2000deg/s full scale)
+  Wire.endTransmission(true);
+
   delay(100);
+
 }
 #endif
 
@@ -327,17 +329,18 @@ void mute_piper()
 #ifdef Arduino_2
 void read_MPU()
 {
-  /* Get new sensor events with the readings */
-  sensors_event_t a, g, temp;
-  mpu.getEvent(&a, &g, &temp);
+  Wire.beginTransmission(MPU);
+  Wire.write(0x3B); // Start with register 0x3B (ACCEL_XOUT_H)
+  Wire.endTransmission(false);
+  Wire.requestFrom(MPU, 14, true); // Read 6 registers total, each axis value is stored in 2 registers
 
-  /* Print out the values */
-  mpu_acX = a.acceleration.x;
-  mpu_acY = a.acceleration.y;
-  mpu_acZ = a.acceleration.z;
-  mpu_gyX = g.gyro.x;
-  mpu_gyY = g.gyro.y;
-  mpu_gyZ = g.gyro.z;
+  mpu_acX = (Wire.read() << 8 | Wire.read()); // X-axis value
+  mpu_acY = (Wire.read() << 8 | Wire.read()); // Y-axis value
+  mpu_acZ = (Wire.read() << 8 | Wire.read()); // Z-axis value
+  mpu_temp = (Wire.read() << 8 | Wire.read());
+  mpu_gyX = (Wire.read() << 8 | Wire.read());
+  mpu_gyY = (Wire.read() << 8 | Wire.read());
+  mpu_gyZ = (Wire.read() << 8 | Wire.read());
 }
 #endif
 
