@@ -65,6 +65,7 @@ const int MPU = 0x68; // MPU6050 I2C address
 const int _PIN_BMP_SDA = 2;
 const int _PIN_BMP_SCL = 3;
 const int _PIN_TMP36 = 4;
+const int _PIN_DVR_TRIGGER = 5;
 //const int _PIN_GPS_RX = 6;
 //const int _PIN_GPS_TX = 8;
 const int _PIN_CAM_EA = 7;
@@ -93,6 +94,7 @@ float ground_pressure = 1013.25; //auf standart wert gestzt -> später reset auf
 
 //****Daten2Log
 String dataString = "timestamp,system_state,bmp_pressure,bmp_alt,bmp_temp,tmp36_temp,cam_mosfet_ea,dvr_trigger,mpu_acX,mpu_acY,mpu_acZ,mpu_temp,mpu_gyX,mpu_gyY,mpu_gyZ,gps_sats,gps_VDOP,gps_HDOP,gps_PDOP,gps_Latitude,gps_Longitude,gps_FixAge,gps_Date,gps_Time,gps_DateAge,gps_altitude,gps_Course,gps_Speed,gps_Card";
+unsigned long previousTime;
 
 int system_state = 0;
 float bmp_pressure = 0;
@@ -133,6 +135,8 @@ void setup()
     ; // wait for serial port to connect. Needed for native USB port only
   }
 #endif
+
+  pinMode(_PIN_CAM_EA, OUTPUT); //MOSFET der Kameras auf LOW
 
   setup_SD();
 
@@ -227,25 +231,24 @@ void setup_BMP390()
 #ifdef Arduino_2
 void setup_MPU()
 {
-  Wire.begin();                      // Initialize comunication
-  Wire.beginTransmission(MPU);       // Start communication with MPU6050 // MPU=0x68
-  Wire.write(0x6B);                  // Talk to the register 6B
-  Wire.write(0x00);                  // Make reset - place a 0 into the 6B register
-  Wire.endTransmission(true);        //end the transmission
+  Wire.begin();                // Initialize comunication
+  Wire.beginTransmission(MPU); // Start communication with MPU6050 // MPU=0x68
+  Wire.write(0x6B);            // Talk to the register 6B
+  Wire.write(0x00);            // Make reset - place a 0 into the 6B register
+  Wire.endTransmission(true);  //end the transmission
 
   // Configure Accelerometer Sensitivity - Full Scale Range (default +/- 2g)
   Wire.beginTransmission(MPU);
-  Wire.write(0x1C);                  //Talk to the ACCEL_CONFIG register (1C hex)
-  Wire.write(0x18);                  //Set the register bits as 00011000 (+/- 16g full scale range)
+  Wire.write(0x1C); //Talk to the ACCEL_CONFIG register (1C hex)
+  Wire.write(0x18); //Set the register bits as 00011000 (+/- 16g full scale range)
   Wire.endTransmission(true);
   // Configure Gyro Sensitivity - Full Scale Range (default +/- 250deg/s)
   Wire.beginTransmission(MPU);
-  Wire.write(0x1B);                   // Talk to the GYRO_CONFIG register (1B hex)
-  Wire.write(0x18);                   // Set the register bits as 00011000 (2000deg/s full scale)
+  Wire.write(0x1B); // Talk to the GYRO_CONFIG register (1B hex)
+  Wire.write(0x18); // Set the register bits as 00011000 (2000deg/s full scale)
   Wire.endTransmission(true);
 
   delay(100);
-
 }
 #endif
 
@@ -343,6 +346,78 @@ void read_MPU()
   mpu_gyZ = (Wire.read() << 8 | Wire.read());
 }
 #endif
+
+void update_system_state()
+{
+  switch (system_state)
+  {
+  case 0:
+    if (bmp_alt > 200)
+    {
+      digitalWrite(_PIN_CAM_EA, HIGH); //Kamera Mosfett ein
+      previousTime = millis();         //Sytemzeit abspeichern
+      system_state = 1;
+    }
+    break;
+
+  case 1:
+    if (millis() - previousTime > 5000)
+    {
+      pinMode(_PIN_DVR_TRIGGER, OUTPUT);   //DVR Trigger LOW
+      digitalWrite(_PIN_DVR_TRIGGER, LOW); //DVR Trigger LOW
+      previousTime = millis();             //Systemzeit abspeichern
+      system_state = 2;
+    }
+
+    break;
+
+  case 2:
+    if (millis() - previousTime > 1000)
+    {
+      pinMode(_PIN_DVR_TRIGGER, INPUT); //DVR Trigger Input (loslassen)
+      previousTime = millis();          //Systemzeit abspeichern
+      system_state = 3;
+    }
+
+    break;
+
+  case 3:
+    if (bmp_alt < 200 && (millis() - previousTime > 3000000))
+    {
+      pinMode(_PIN_DVR_TRIGGER, OUTPUT);   //DVR Trigger LOW
+      digitalWrite(_PIN_DVR_TRIGGER, LOW); //DVR Trigger LOW
+      previousTime = millis();             //Systemzeit abspeichern
+      system_state = 4;
+    }
+
+    break;
+
+  case 4:
+    if (millis() - previousTime > 1000)
+    {
+      pinMode(_PIN_DVR_TRIGGER, INPUT); //DVR Trigger Input (loslassen)
+      previousTime = millis();          //Systemzeit abspeichern
+      system_state = 5;
+    }
+
+    break;
+
+  case 5:
+    if (millis() - previousTime > 1000)
+    {
+      digitalWrite(_PIN_CAM_EA, LOW); //Kamera Mosfett aus
+      previousTime = millis();        //Systemzeit abspeichern
+      system_state = 6;
+    }
+
+    break;
+
+  case 6:
+    pinMode(21, OUTPUT); //grüne LED an
+    digitalWrite(21, HIGH);
+    break;
+  }
+}
 
 void data_to_dataString()
 {
