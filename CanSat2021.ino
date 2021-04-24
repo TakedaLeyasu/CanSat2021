@@ -11,8 +11,8 @@
 #endif
 
 //*******Welcher Arduino?
-//#define Arduino_1
-#define Arduino_2
+#define Arduino_1
+//#define Arduino_2
 
 #if (defined(Arduino_1) == defined(Arduino_2))
 #error
@@ -66,17 +66,20 @@ const int _PIN_BMP_SDA = 2;
 const int _PIN_BMP_SCL = 3;
 const int _PIN_TMP36 = 4;
 const int _PIN_DVR_TRIGGER = 5;
-//const int _PIN_GPS_RX = 6;
+//const int _PIN_GPS_RX = 6; //unter setup GPS
 //const int _PIN_GPS_TX = 8;
 const int _PIN_CAM_EA = 7;
 const int _PIN_Piper = 9;
 const int _PIN_SD_CS = 10;
-const int _PIN_LED = 18;
-const int _PIN_DVR_record = 19;
-//const int _PIN_LED2 = 20;
-//const int _PIN_LED3 = 21;
+const int _PIN_ServicePort = 18;
+const int _PIN_LED_ROT = 19;
+const int _PIN_LED_GELB = 20;
+const int _PIN_LED_GRUEN = 21;
+
+int ledState = LOW;
+
 /*
-   SD card SPI bus:
+   SD card SPI bus: (intern festgelegt)
    SCLK - pin 15
    MISO - pin 14
    MOSI - pin 16
@@ -85,11 +88,11 @@ const int _PIN_DVR_record = 19;
 */
 //Luftdruck am Boden
 #ifdef Arduino_1
-float ground_pressure = 101325; //auf standart wert gestzt -> später reset auf 0m
+float ground_pressure = 101325; //auf Standartwert gesetzt -> später reset auf 0m
 #endif
 
 #ifdef Arduino_2
-float ground_pressure = 1013.25; //auf standart wert gestzt -> später reset auf 0m
+float ground_pressure = 1013.25; //auf Standartwert gesetzt -> später reset auf 0m
 #endif
 
 //****Daten2Log
@@ -102,7 +105,7 @@ float bmp_alt = 0;
 float bmp_temp = 0;
 int tmp36_temp = 0;
 bool cam_mosfet_ea = 0;
-bool dvr_trigger = 0;
+bool dvr_trigger = 1;
 float mpu_acX = 0;
 float mpu_acY = 0;
 float mpu_acZ = 0;
@@ -138,6 +141,8 @@ void setup()
 
   pinMode(_PIN_CAM_EA, OUTPUT); //MOSFET der Kameras auf LOW
 
+  setup_LEDs();  
+
   setup_SD();
 
 #ifdef Arduino_1
@@ -170,13 +175,28 @@ void loop()
   read_BMP390();
   read_MPU();
 #endif
-
+  update_system_state();
   data_to_dataString();
   dataString_to_SD();
   //delay(1000);
 }
 
 //*************Funktionen***********
+
+void setup_LEDs(){
+  pinMode(_PIN_LED_ROT, OUTPUT); //LEDs als Ausgang
+  pinMode(_PIN_LED_GELB, OUTPUT);
+  pinMode(_PIN_LED_GRUEN, OUTPUT);
+  digitalWrite(_PIN_LED_ROT, HIGH);//alle LEDs kurz an
+  digitalWrite(_PIN_LED_GELB, HIGH);
+  digitalWrite(_PIN_LED_GRUEN, HIGH);
+  delay(2000);
+  digitalWrite(_PIN_LED_ROT, LOW);//alle LEDs aus
+  digitalWrite(_PIN_LED_GELB, LOW);
+  digitalWrite(_PIN_LED_GRUEN, LOW);
+
+}
+
 void setup_SD()
 {
   DPRINT("Initializing SD card...");
@@ -186,8 +206,8 @@ void setup_SD()
   {
     DPRINTLN("Card failed, or not present");
     // don't do anything more:
-    while (1)
-      ; //*********************************************************************Achtung Fehlermeldung
+    digitalWrite(_PIN_LED_ROT, HIGH);
+    while (1); //*********************************************************************Achtung Fehlermeldung
   }
   DPRINTLN("card initialized.");
 
@@ -200,9 +220,8 @@ void setup_BMP180()
   if (!bmp.begin())
   {
     DPRINTLN("Could not find a valid BMP085 sensor, check wiring!");
-    while (1)
-    {
-    } //*********************************************************************Achtung Fehlermeldung
+    digitalWrite(_PIN_LED_ROT, HIGH);
+    while (1); //*********************************************************************Achtung Fehlermeldung
   }
   read_BMP180();
   ground_pressure = bmp_pressure;
@@ -215,8 +234,8 @@ void setup_BMP390()
   if (!bmp.begin_I2C())
   { // hardware I2C mode, can pass in address & alt Wire
     DPRINTLN("Could not find a valid BMP3 sensor, check wiring!");
-    while (1)
-      ; //*********************************************************************Achtung Fehlermeldung
+    digitalWrite(_PIN_LED_ROT, HIGH);
+    while (1); //*********************************************************************Achtung Fehlermeldung
   }
   // Set up oversampling and filter initialization
   bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
@@ -355,9 +374,42 @@ void update_system_state()
     if (bmp_alt > 200)
     {
       digitalWrite(_PIN_CAM_EA, HIGH); //Kamera Mosfett ein
+      cam_mosfet_ea = 1;
       previousTime = millis();         //Sytemzeit abspeichern
       system_state = 1;
+      digitalWrite(_PIN_LED_GRUEN, LOW);
+      digitalWrite(_PIN_LED_GELB, HIGH);
+      break;
     }
+
+    if (millis() - previousTime > 1000)
+    {
+      previousTime = millis();         //Sytemzeit abspeichern
+
+      // if the LED is off turn it on and vice-versa:
+      if (ledState == LOW) {
+        ledState = HIGH;
+      } else {
+        ledState = LOW;
+      }
+      digitalWrite(_PIN_LED_GRUEN, ledState);
+    }
+
+/*
+    if (millis() - previousTime > 1000)
+    {
+      digitalWrite(_PIN_LED_GRUEN, HIGH);
+    }
+    if (millis() - previousTime > 2000)
+    {
+      digitalWrite(_PIN_LED_GRUEN, LOW);
+    }
+     if (millis() - previousTime > 3000)
+    {
+      previousTime = millis();         //Sytemzeit abspeichern
+    }
+    */
+
     break;
 
   case 1:
@@ -365,6 +417,7 @@ void update_system_state()
     {
       pinMode(_PIN_DVR_TRIGGER, OUTPUT);   //DVR Trigger LOW
       digitalWrite(_PIN_DVR_TRIGGER, LOW); //DVR Trigger LOW
+      dvr_trigger = 0;
       previousTime = millis();             //Systemzeit abspeichern
       system_state = 2;
     }
@@ -375,17 +428,20 @@ void update_system_state()
     if (millis() - previousTime > 1000)
     {
       pinMode(_PIN_DVR_TRIGGER, INPUT); //DVR Trigger Input (loslassen)
+      dvr_trigger = 1;
       previousTime = millis();          //Systemzeit abspeichern
       system_state = 3;
+      digitalWrite(20, HIGH); //gelbe LED an
     }
 
     break;
 
   case 3:
-    if (bmp_alt < 200 && (millis() - previousTime > 3000000))
+    if (millis() - previousTime > 120000)//*********************************************Zeit anpassen
     {
       pinMode(_PIN_DVR_TRIGGER, OUTPUT);   //DVR Trigger LOW
       digitalWrite(_PIN_DVR_TRIGGER, LOW); //DVR Trigger LOW
+      dvr_trigger = 0;
       previousTime = millis();             //Systemzeit abspeichern
       system_state = 4;
     }
@@ -396,6 +452,7 @@ void update_system_state()
     if (millis() - previousTime > 1000)
     {
       pinMode(_PIN_DVR_TRIGGER, INPUT); //DVR Trigger Input (loslassen)
+      dvr_trigger = 1;
       previousTime = millis();          //Systemzeit abspeichern
       system_state = 5;
     }
@@ -403,9 +460,11 @@ void update_system_state()
     break;
 
   case 5:
-    if (millis() - previousTime > 1000)
+    if (millis() - previousTime > 8000)
     {
       digitalWrite(_PIN_CAM_EA, LOW); //Kamera Mosfett aus
+      cam_mosfet_ea = 0;
+      digitalWrite(_PIN_LED_GELB, LOW);
       previousTime = millis();        //Systemzeit abspeichern
       system_state = 6;
     }
@@ -413,8 +472,7 @@ void update_system_state()
     break;
 
   case 6:
-    pinMode(21, OUTPUT); //grüne LED an
-    digitalWrite(21, HIGH);
+    digitalWrite(_PIN_LED_GRUEN, HIGH); //grüne LED an
     break;
   }
 }
