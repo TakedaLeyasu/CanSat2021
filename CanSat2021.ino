@@ -1,6 +1,6 @@
 //*************DEBUG****************
 
-#define DEBUG                                     //If you comment this line, the DPRINT & DPRINTLN lines are defined as blank.
+//#define DEBUG                                     //If you comment this line, the DPRINT & DPRINTLN lines are defined as blank.
 #ifdef DEBUG                                      //Macros are usually in all capital letters.
 #define DPRINT(...) Serial.print(__VA_ARGS__)     //DPRINT is a macro, debug print
 #define DPRINTLN(...) Serial.println(__VA_ARGS__) //DPRINTLN is a macro, debug print with new line
@@ -207,7 +207,7 @@ void setup_SD()
     DPRINTLN("Card failed, or not present");
     // don't do anything more:
     digitalWrite(_PIN_LED_ROT, HIGH);
-    while (1); //*********************************************************************Achtung Fehlermeldung
+    //while (1); //*********************************************************************Achtung Fehlermeldung
   }
   DPRINTLN("card initialized.");
 
@@ -221,7 +221,7 @@ void setup_BMP180()
   {
     DPRINTLN("Could not find a valid BMP085 sensor, check wiring!");
     digitalWrite(_PIN_LED_ROT, HIGH);
-    while (1); //*********************************************************************Achtung Fehlermeldung
+    //while (1); //*********************************************************************Achtung Fehlermeldung
   }
   read_BMP180();
   ground_pressure = bmp_pressure;
@@ -235,7 +235,7 @@ void setup_BMP390()
   { // hardware I2C mode, can pass in address & alt Wire
     DPRINTLN("Could not find a valid BMP3 sensor, check wiring!");
     digitalWrite(_PIN_LED_ROT, HIGH);
-    while (1); //*********************************************************************Achtung Fehlermeldung
+    //while (1); //*********************************************************************Achtung Fehlermeldung
   }
   // Set up oversampling and filter initialization
   bmp.setTemperatureOversampling(BMP3_OVERSAMPLING_8X);
@@ -395,7 +395,7 @@ void update_system_state()
       digitalWrite(_PIN_LED_GRUEN, ledState);
     }
 
-/*
+    /* Alternative 2Byte Programmspeicher mehr, dynamischer Speicher 2Byte weniger
     if (millis() - previousTime > 1000)
     {
       digitalWrite(_PIN_LED_GRUEN, HIGH);
@@ -430,14 +430,14 @@ void update_system_state()
       pinMode(_PIN_DVR_TRIGGER, INPUT); //DVR Trigger Input (loslassen)
       dvr_trigger = 1;
       previousTime = millis();          //Systemzeit abspeichern
-      system_state = 3;
-      digitalWrite(20, HIGH); //gelbe LED an
+      system_state = 3; 
+      digitalWrite(_PIN_LED_GELB, HIGH); //gelbe LED an
     }
 
     break;
 
   case 3:
-    if (millis() - previousTime > 120000)//*********************************************Zeit anpassen
+    if (millis() - previousTime > 30000)//*********************************************Zeit anpassen
     {
       pinMode(_PIN_DVR_TRIGGER, OUTPUT);   //DVR Trigger LOW
       digitalWrite(_PIN_DVR_TRIGGER, LOW); //DVR Trigger LOW
@@ -473,6 +473,9 @@ void update_system_state()
 
   case 6:
     digitalWrite(_PIN_LED_GRUEN, HIGH); //grüne LED an
+    #ifdef Arduino_1
+    piper.detach();
+    #endif
     break;
   }
 }
