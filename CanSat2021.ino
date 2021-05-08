@@ -4,7 +4,7 @@
 #ifdef DEBUG                                      //Macros are usually in all capital letters.
 #define DPRINT(...) Serial.print(__VA_ARGS__)     //DPRINT is a macro, debug print
 #define DPRINTLN(...) Serial.println(__VA_ARGS__) //DPRINTLN is a macro, debug print with new line
-#warning
+#warning DEBUG Modus
 #else
 #define DPRINT(...)   //now defines a blank line
 #define DPRINTLN(...) //now defines a blank line
@@ -96,7 +96,7 @@ float ground_pressure = 1013.25; //auf Standartwert gesetzt -> später reset auf
 #endif
 
 //****Daten2Log
-String dataString = "timestamp,system_state,bmp_pressure,bmp_alt,bmp_temp,tmp36_temp,cam_mosfet_ea,dvr_trigger,mpu_acX,mpu_acY,mpu_acZ,mpu_temp,mpu_gyX,mpu_gyY,mpu_gyZ,gps_sats,gps_VDOP,gps_HDOP,gps_PDOP,gps_Latitude,gps_Longitude,gps_FixAge,gps_Date,gps_Time,gps_DateAge,gps_altitude,gps_Course,gps_Speed,gps_Card";
+String dataString = "timestamp,system_state,bmp_pressure,bmp_alt,bmp_temp,tmp36_temp,cam_mosfet_ea,dvr_trigger,mpu_acX,mpu_acY,mpu_acZ,mpu_temp,mpu_gyX,mpu_gyY,mpu_gyZ";
 unsigned long previousTime;
 
 int system_state = 0;
@@ -113,20 +113,6 @@ float mpu_temp = 0;
 float mpu_gyX = 0;
 float mpu_gyY = 0;
 float mpu_gyZ = 0;
-float gps_sats = 0;
-float gps_VDOP = 0;
-float gps_HDOP = 0;
-float gps_PDOP = 0;
-float gps_Latitude = 0;
-float gps_Longitude = 0;
-float gps_FixAge = 0;
-float gps_Date = 0;
-float gps_Time = 0;
-float gps_DateAge = 0;
-float gps_altitude = 0;
-float gps_Course = 0;
-float gps_Speed = 0;
-float gps_Card = 0; //????
 
 void setup()
 {
@@ -437,7 +423,7 @@ void update_system_state()
     break;
 
   case 3:
-    if (millis() - previousTime > 30000)//*********************************************Zeit anpassen
+    if (millis() - previousTime > 120000)//*********************************************Zeit anpassen
     {
       pinMode(_PIN_DVR_TRIGGER, OUTPUT);   //DVR Trigger LOW
       digitalWrite(_PIN_DVR_TRIGGER, LOW); //DVR Trigger LOW
@@ -497,22 +483,8 @@ void data_to_dataString()
   dataString += String(mpu_temp) + ",";
   dataString += String(mpu_gyX) + ",";
   dataString += String(mpu_gyY) + ",";
-  dataString += String(mpu_gyZ) + ",";
-  dataString += String(gps_sats) + ",";
-  dataString += String(gps_VDOP) + ",";
-  dataString += String(gps_HDOP) + ",";
-  dataString += String(gps_PDOP) + ",";
-  dataString += String(gps_Latitude) + ",";
-  dataString += String(gps_Longitude) + ",";
-  dataString += String(gps_FixAge) + ",";
-  dataString += String(gps_Date) + ",";
-  dataString += String(gps_Time) + ",";
-  dataString += String(gps_DateAge) + ",";
-  dataString += String(gps_altitude) + ",";
-  dataString += String(gps_Course) + ",";
-  dataString += String(gps_Speed) + ",";
-  dataString += String(gps_Card);
-}
+  dataString += String(mpu_gyZ);
+  }
 
 void dataString_to_SD()
 {
@@ -524,7 +496,9 @@ void dataString_to_SD()
     dataFile.println(dataString);
     dataFile.close();
     // print to the serial port too:
-    DPRINTLN(dataString);
+    DPRINT("/*");
+    DPRINT(dataString);
+    DPRINTLN("*/");
   }
   // if the file isn't open, pop up an error:
   else
